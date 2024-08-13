@@ -1,0 +1,11 @@
+__pycache__
+.DS_Store
+
+splits
+logs
+
+taming-transformers
+taming
+
+*.ckpt
+*.pth
