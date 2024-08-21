@@ -1,5 +1,3 @@
-.PHONY: tests coverage
-
 setup:
 	poetry install -v --all-extras
 
