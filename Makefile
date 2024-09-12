@@ -28,3 +28,6 @@ lint-notebook:
 	nbqa flake8 *.ipynb
 	echo running autoflake...
 	nbqa autoflake -i --remove-all-unused-imports *.ipynb
+
+train:
+	CUDA_VISIBLE_DEVICES=0 python main.py --base ldm/models/ldm/inpainting_big/config.yaml --resume ldm/models/ldm/inpainting_big/last.ckpt --stage 1 -t --gpus 0,

@@ -157,7 +157,7 @@ class InpaintingTrain_ldm(Dataset):
         mask_address=self.mask_list[i]
         
         mask = Image.open(self.data_root+"/masks/"+mask_address).convert("L").resize((512,512))
-        mask = np.array(draw_rectangle_over_mask(mask))
+        # mask = np.array(draw_rectangle_over_mask(mask))
         mask = np.expand_dims(mask, axis=2)
         
         

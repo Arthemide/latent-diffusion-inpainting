@@ -26,6 +26,8 @@ from pytorch_lightning.utilities import rank_zero_info
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from torch.utils.data import DataLoader, Dataset
 
+from pprint import pprint
+
 transform = T.ToPILImage()
 
 
@@ -419,17 +421,15 @@ class ImageLogger(Callback):
             logger = type(pl_module.logger)
 
             is_train = pl_module.training
-            # if is_train:
-            #     pl_module.eval()
 
             # with torch.no_grad():
-            #     images = pl_module.log_images(batch, split=split, **self.log_images_kwargs)
+            #     images = pl_module.log_images(batch, **self.log_images_kwargs)
 
             # for k in images:
             #     N = min(images[k].shape[0], self.max_images)
             #     images[k] = images[k][:N]
             #     if isinstance(images[k], torch.Tensor):
-            #         images[k] = images[k].detach().cpu()
+            #         images[k] = images[k].detach().cpu()  # Move tensors to CPU
             #         if self.clamp:
             #             images[k] = torch.clamp(images[k], -1., 1.)
 
@@ -595,11 +595,15 @@ if __name__ == "__main__":
     try:
         # init and save configs
         configs = [OmegaConf.load(cfg) for cfg in opt.base]
+        print("\n\n config",config)
         cli = OmegaConf.from_dotlist(unknown)
         config = OmegaConf.merge(*configs, cli)
         lightning_config = config.pop("lightning", OmegaConf.create())
+        print("\n\n lightning_config",lightning_config)
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
+        print("\n\n trainer_config",trainer_config)
+
         # default to ddp
         trainer_config["accelerator"] = "ddp"
         for k in nondefault_trainer_args(opt):
@@ -690,7 +694,7 @@ if __name__ == "__main__":
             },
             "image_logger": {
                 "target": "main.ImageLogger",
-                "params": {"batch_frequency": 750, "max_images": 4, "clamp": True},
+                "params": {"batch_frequency": 1, "max_images": 4, "clamp": True},
             },
             "learning_rate_logger": {
                 "target": "main.LearningRateMonitor",
@@ -730,19 +734,32 @@ if __name__ == "__main__":
             }
             default_callbacks_cfg.update(default_metrics_over_trainsteps_ckpt_dict)
 
+        if "callbacks" in lightning_config:
+            callbacks_cfg = lightning_config.callbacks
+        else:
+            callbacks_cfg = OmegaConf.create()
+
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
-        if "ignore_keys_callback" in callbacks_cfg and hasattr(
-            trainer_opt, "resume_from_checkpoint"
-        ):
-            callbacks_cfg.ignore_keys_callback.params["ckpt_path"] = (
-                trainer_opt.resume_from_checkpoint
-            )
+        if "ignore_keys_callback" in callbacks_cfg and hasattr(trainer_opt, "resume_from_checkpoint"):
+            callbacks_cfg.ignore_keys_callback.params["ckpt_path"] = trainer_opt.resume_from_checkpoint
         elif "ignore_keys_callback" in callbacks_cfg:
             del callbacks_cfg["ignore_keys_callback"]
 
-        trainer_kwargs["callbacks"] = [
-            instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg
-        ]
+        callbacks_list = [instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg]
+        # trainer_kwargs['callbacks'] = [
+        #     instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg
+        # ]
+        trainer_kwargs = {
+            'callbacks': callbacks_list,
+            'log_every_n_steps': 1,  # Ajustez cette valeur en fonction de votre nombre de batches
+            # Ajoutez d'autres paramètres de configuration ici
+        }
+        
+        
+        print("Trainer configuration:")
+        pprint(trainer_kwargs)
+        print(f"\n\n trainer_kwargs avec pprint :{callbacks_cfg} \n\n")
+        print(f"\n\n trainer_kwargs : {trainer_kwargs.keys}")
 
         trainer = Trainer(**trainer_kwargs)
         trainer.logdir = logdir  ###
